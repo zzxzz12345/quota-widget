@@ -1,0 +1,49 @@
+{
+  "refreshIntervalSeconds": 300,
+  "warnThreshold": 25,
+  "criticalThreshold": 10,
+  "showMenuBarText": true,
+  "credentials": {
+    "opencode-go": {
+      "type": "api",
+      "key": "${OPENCODE_API_KEY}"
+    },
+    "ollama-cloud": {
+      "type": "api",
+      "key": "${OLLAMA_API_KEY}"
+    },
+    "deepseek": {
+      "type": "api",
+      "key": "${DEEPSEEK_API_KEY}"
+    }
+  },
+  "providers": [
+    {
+      "type": "commandcode"
+    },
+    {
+      "type": "opencode-go",
+      "credential": "opencode-go"
+    },
+    {
+      "type": "ollama-cloud",
+      "credential": "ollama-cloud"
+    },
+    {
+      "type": "deepseek",
+      "credential": "deepseek"
+    },
+    {
+      "type": "zai",
+      "enabled": false
+    },
+    {
+      "type": "custom",
+      "id": "my-coding-plan",
+      "name": "My Coding Plan",
+      "url": "https://api.example.com/quota",
+      "apiKeyEnv": "MY_CODING_PLAN_KEY",
+      "format": "quota-v1"
+    }
+  ]
+}

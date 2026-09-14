@@ -58,9 +58,13 @@ struct SettingsView: View {
             Text("Settings")
                 .font(.system(size: 12.5, weight: .semibold))
             Spacer()
-            Button("Done", action: commit)
-                .controlSize(.small)
-                .keyboardShortcut(.defaultAction)
+            if renderMode == .offscreen {
+                StaticControls.TextButton(title: "Done", size: 11)
+            } else {
+                Button("Done", action: commit)
+                    .controlSize(.small)
+                    .keyboardShortcut(.defaultAction)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
@@ -70,17 +74,24 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 5) {
             sectionTitle("Tracked plan", "Shown in the menu bar as 5h / 1w / 1m.")
 
-            Picker("", selection: Binding(
-                get: { draft.trackedID ?? "" },
-                set: { draft.setTracked($0.isEmpty ? nil : $0) }
-            )) {
-                Text("Tightest across all").tag("")
-                ForEach(enabledProviders, id: \.resolvedID) { provider in
-                    Text(displayName(for: provider)).tag(provider.resolvedID)
+            let trackedOptions: [(value: String, title: String)] =
+                [(value: "", title: "Tightest across all")]
+                + enabledProviders.map { (value: $0.resolvedID, title: displayName(for: $0)) }
+
+            if renderMode == .offscreen {
+                StaticControls.RadioGroup(options: trackedOptions, selection: draft.trackedID ?? "")
+            } else {
+                Picker("", selection: Binding(
+                    get: { draft.trackedID ?? "" },
+                    set: { draft.setTracked($0.isEmpty ? nil : $0) }
+                )) {
+                    ForEach(trackedOptions, id: \.value) { option in
+                        Text(option.title).tag(option.value)
+                    }
                 }
+                .labelsHidden()
+                .pickerStyle(.radioGroup)
             }
-            .labelsHidden()
-            .pickerStyle(.radioGroup)
         }
     }
 
@@ -88,23 +99,34 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 5) {
             sectionTitle("Menu bar", nil)
 
-            Picker("", selection: Binding(
-                get: { draft.style },
-                set: { draft.setStyle($0) }
-            )) {
-                ForEach(MenuBarStyle.allCases) { style in
-                    Text("\(style.title)  ·  \(style.example)").tag(style)
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.radioGroup)
+            let styleOptions: [(value: MenuBarStyle, title: String)] =
+                MenuBarStyle.allCases.map { (value: $0, title: "\($0.title)  ·  \($0.example)") }
 
-            Toggle("Show the numbers next to the icon", isOn: Binding(
-                get: { draft.config.showMenuBarText ?? true },
-                set: { draft.setShowMenuBarText($0) }
-            ))
-            .toggleStyle(.checkbox)
-            .font(.system(size: 11))
+            if renderMode == .offscreen {
+                StaticControls.RadioGroup(options: styleOptions, selection: draft.style)
+                StaticControls.Checkbox(
+                    title: "Show the numbers next to the icon",
+                    isOn: draft.config.showMenuBarText ?? true
+                )
+            } else {
+                Picker("", selection: Binding(
+                    get: { draft.style },
+                    set: { draft.setStyle($0) }
+                )) {
+                    ForEach(styleOptions, id: \.value) { option in
+                        Text(option.title).tag(option.value)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.radioGroup)
+
+                Toggle("Show the numbers next to the icon", isOn: Binding(
+                    get: { draft.config.showMenuBarText ?? true },
+                    set: { draft.setShowMenuBarText($0) }
+                ))
+                .toggleStyle(.checkbox)
+                .font(.system(size: 11))
+            }
         }
     }
 
@@ -114,16 +136,20 @@ struct SettingsView: View {
                 sectionTitle("Providers", nil)
                 Spacer()
                 if !addableTypes.isEmpty {
-                    Menu("Add") {
-                        ForEach(addableTypes, id: \.self) { type in
-                            Button(ProviderRegistry.defaultName(for: type)) {
-                                addProvider(type)
+                    if renderMode == .offscreen {
+                        StaticControls.MenuLabel(title: "Add")
+                    } else {
+                        Menu("Add") {
+                            ForEach(addableTypes, id: \.self) { type in
+                                Button(ProviderRegistry.defaultName(for: type)) {
+                                    addProvider(type)
+                                }
                             }
                         }
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
+                        .font(.system(size: 11))
                     }
-                    .menuStyle(.borderlessButton)
-                    .fixedSize()
-                    .font(.system(size: 11))
                 }
             }
 
@@ -145,12 +171,18 @@ struct SettingsView: View {
 
     private func providerRow(index: Int, provider: ProviderConfig) -> some View {
         HStack(spacing: 6) {
-            Toggle("", isOn: Binding(
-                get: { provider.isEnabled },
-                set: { draft.setEnabled($0, at: index) }
-            ))
-            .toggleStyle(.checkbox)
-            .labelsHidden()
+            if renderMode == .offscreen {
+                Image(systemName: provider.isEnabled ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 11))
+                    .foregroundStyle(provider.isEnabled ? Color.accentColor : .secondary)
+            } else {
+                Toggle("", isOn: Binding(
+                    get: { provider.isEnabled },
+                    set: { draft.setEnabled($0, at: index) }
+                ))
+                .toggleStyle(.checkbox)
+                .labelsHidden()
+            }
 
             Text(displayName(for: provider))
                 .font(.system(size: 11.5))
@@ -162,14 +194,18 @@ struct SettingsView: View {
 
             Spacer(minLength: 6)
 
-            Button {
-                removeProvider(at: index)
-            } label: {
-                Image(systemName: "minus.circle")
-                    .font(.system(size: 11))
+            if renderMode == .offscreen {
+                StaticControls.Icon(systemName: "minus.circle", size: 11)
+            } else {
+                Button {
+                    removeProvider(at: index)
+                } label: {
+                    Image(systemName: "minus.circle")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.borderless)
+                .help("Remove from the panel")
             }
-            .buttonStyle(.borderless)
-            .help("Remove from the panel")
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
@@ -184,11 +220,15 @@ struct SettingsView: View {
                     .lineLimit(2)
             }
             Spacer()
-            Button("Open config file") {
-                try? ConfigStore.writeTemplate()
-                NSWorkspace.shared.open(ConfigStore.fileURL)
+            if renderMode == .offscreen {
+                StaticControls.TextButton(title: "Open config file", size: 11)
+            } else {
+                Button("Open config file") {
+                    try? ConfigStore.writeTemplate()
+                    NSWorkspace.shared.open(ConfigStore.fileURL)
+                }
+                .controlSize(.small)
             }
-            .controlSize(.small)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

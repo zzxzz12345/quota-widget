@@ -74,24 +74,31 @@ struct PanelView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 6)
-            Button {
-                Task { await service.refresh() }
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 12))
-            }
-            .buttonStyle(.borderless)
-            .disabled(service.isRefreshing)
-            .help("Refresh now")
+            if renderMode == .offscreen {
+                HStack(spacing: 10) {
+                    StaticControls.Icon(systemName: "arrow.clockwise")
+                    StaticControls.Icon(systemName: "slider.horizontal.3")
+                }
+            } else {
+                Button {
+                    Task { await service.refresh() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.borderless)
+                .disabled(service.isRefreshing)
+                .help("Refresh now")
 
-            Button {
-                showingSettings = true
-            } label: {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 12))
+                Button {
+                    showingSettings = true
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.borderless)
+                .help("Choose the tracked plan and providers")
             }
-            .buttonStyle(.borderless)
-            .help("Choose the tracked plan and providers")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
@@ -216,22 +223,31 @@ struct PanelView: View {
         .padding(10)
     }
 
+    @ViewBuilder
     private var footer: some View {
         HStack(spacing: 10) {
-            Button("Config") { openConfig() }
-                .buttonStyle(.borderless)
-                .font(.system(size: 11))
-            Button("Copy JSON") { copyJSON() }
-                .buttonStyle(.borderless)
-                .font(.system(size: 11))
-            Spacer()
-            Toggle("Login", isOn: loginItemBinding)
-                .toggleStyle(.checkbox)
-                .font(.system(size: 11))
-                .help("Launch Quota Widget at login")
-            Button("Quit") { NSApplication.shared.terminate(nil) }
-                .buttonStyle(.borderless)
-                .font(.system(size: 11))
+            if renderMode == .offscreen {
+                StaticControls.TextButton(title: "Config")
+                StaticControls.TextButton(title: "Copy JSON")
+                Spacer()
+                StaticControls.Checkbox(title: "Login", isOn: LoginItem.isEnabled)
+                StaticControls.TextButton(title: "Quit")
+            } else {
+                Button("Config") { openConfig() }
+                    .buttonStyle(.borderless)
+                    .font(.system(size: 11))
+                Button("Copy JSON") { copyJSON() }
+                    .buttonStyle(.borderless)
+                    .font(.system(size: 11))
+                Spacer()
+                Toggle("Login", isOn: loginItemBinding)
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 11))
+                    .help("Launch Quota Widget at login")
+                Button("Quit") { NSApplication.shared.terminate(nil) }
+                    .buttonStyle(.borderless)
+                    .font(.system(size: 11))
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)

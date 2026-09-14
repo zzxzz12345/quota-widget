@@ -1,11 +1,15 @@
 # Coding Plan Quota (quota-widget)
 
+**English** · [简体中文](README.zh-CN.md)
+
 A macOS menu bar app that shows how much of your coding plan you have left.
 The menu bar reports the tracked plan's **5h / 1w / 1m** percentages; click the
 gauge and a panel drops down with one card per provider — every metered window
 with a progress bar, the reset countdown, and whatever balances or spend the
 provider reports. A settings screen inside the panel picks the tracked plan and
 which providers are shown.
+
+![The dropdown panel](docs/panel.png)
 
 It is a native SwiftUI app — one Swift package, no Electron, no background
 daemon. It reads the credentials your CLI agents already wrote to disk, so in
@@ -32,6 +36,9 @@ The menu bar itself shows the same three numbers, tinted by the tightest one:
 | `windows` (default) | `19/67/84` |
 | `labeled` | `5h19 1w67 1m84` |
 | `worst` | `19%` |
+
+The screenshots above are rendered from the real views with illustrative data
+(`--preview --demo`), so they contain nobody's account or usage.
 
 ## Install
 
@@ -64,6 +71,8 @@ The sliders icon in the panel header opens Settings:
 
 Settings writes `config.json` directly (mode `600`), so the panel and the file
 never drift apart.
+
+![Settings](docs/settings.png)
 
 ## Providers
 

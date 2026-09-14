@@ -16,6 +16,7 @@ enum CLIRunner {
         var providerFilter: String?
         var previewPath: String?
         var previewSettings = false
+        var previewDemo = false
         var quiet = false
     }
 
@@ -29,6 +30,9 @@ enum CLIRunner {
       --json              Print the full report as JSON and exit
       --check             Print a text report; exit 1 if any quota is below the warn threshold
       --preview <path>    Render the dropdown panel to a PNG and exit
+      --settings          With --preview, render the settings screen instead
+      --demo              With --preview, use illustrative data instead of
+                          fetching anything (used for the README screenshots)
       --provider <id>     Limit output to one provider id
       --quiet             With --check, print nothing and use the exit code only
       --migrate-auth      Copy credentials from the CLI auth files and the shell
@@ -148,14 +152,19 @@ enum CLIRunner {
             providers = providers.filter { $0.resolvedID == filter || $0.type == filter }
         }
 
-        let quotas = collectQuotas(providers: providers, credentials: CredentialStore(config: config))
+        let demo = options.previewDemo
+        let effectiveConfig = demo ? DemoData.config() : config
+        let quotas = demo
+            ? DemoData.quotas()
+            : collectQuotas(providers: providers, credentials: CredentialStore(config: config))
         let now = Date()
 
         if let path = options.previewPath {
             let service = MainActor.assumeIsolated {
-                let service = QuotaService(config: config, preloaded: quotas, lastRefresh: now)
-                // The preview must show the same notices the live panel would.
-                service.refreshCredentialNotice()
+                let service = QuotaService(config: effectiveConfig, preloaded: quotas, lastRefresh: now)
+                // The preview must show the same notices the live panel would —
+                // except in demo mode, which reflects nobody's real machine.
+                if !demo { service.refreshCredentialNotice() }
                 return service
             }
             do {
@@ -242,6 +251,7 @@ enum CLIRunner {
             case "--migrate-auth": options.migrateAuth = true
             case "--all": options.migrateAll = true
             case "--settings": options.previewSettings = true
+            case "--demo": options.previewDemo = true
             case "--auth": options.authStatus = true
             case "--version": options.version = true
             case "--quiet", "-q": options.quiet = true

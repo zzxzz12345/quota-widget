@@ -133,6 +133,9 @@ struct ProviderConfig: Codable {
     /// Optional literal windows for plans with a fixed, known allowance.
     var staticWindows: [StaticWindow]?
 
+    /// Registry key for this entry. `id` disambiguates two accounts of the same
+    /// provider type; `ProviderConfig` normalization guarantees it is unique
+    /// across the config, since everything downstream keys off it.
     var resolvedID: String { id ?? type }
     var resolvedName: String { name ?? resolvedID }
     var isEnabled: Bool { enabled ?? true }
@@ -182,6 +185,88 @@ struct QuotaWidgetConfig: Codable {
 
     var credentialCount: Int {
         (credentials ?? [:]).values.filter { !$0.isEmpty }.count
+    }
+
+    // MARK: - Provider identity
+
+    /// 1-based position among entries of the same provider type, so a second
+    /// `zai` account is distinguishable from the first.
+    func ordinal(ofIndex index: Int) -> Int {
+        guard providers.indices.contains(index) else { return 1 }
+        let type = providers[index].type
+        return providers.prefix(index).filter { $0.type == type }.count + 1
+    }
+
+    /// Card and menu title for one entry. Falls back to the provider's own name,
+    /// suffixed `(2)`, `(3)`… when the type repeats.
+    func displayName(at index: Int) -> String {
+        guard providers.indices.contains(index) else { return "" }
+        if let name = providers[index].name, !name.isEmpty { return name }
+        let base = ProviderRegistry.defaultName(for: providers[index].type)
+        let position = ordinal(ofIndex: index)
+        return position > 1 ? "\(base) (\(position))" : base
+    }
+
+    /// Entries handed to providers, with a distinguishing `name` filled in.
+    func resolvedProviders(enabledOnly: Bool = true) -> [ProviderConfig] {
+        providers.enumerated().compactMap { index, provider in
+            guard !enabledOnly || provider.isEnabled else { return nil }
+            guard provider.name?.isEmpty ?? true else { return provider }
+            var copy = provider
+            copy.name = displayName(at: index)
+            return copy
+        }
+    }
+
+    /// Assigns an explicit `id` wherever one is missing or would collide, so two
+    /// entries can never share an identity. Returns what it changed so the panel
+    /// can say so.
+    func normalized() -> (config: QuotaWidgetConfig, warning: String?) {
+        var copy = self
+        var used: Set<String> = []
+        var assigned: [String] = []
+
+        for index in copy.providers.indices {
+            let provider = copy.providers[index]
+            let explicit = provider.id.flatMap { $0.isEmpty ? nil : $0 }
+            let candidate = explicit ?? provider.type
+
+            // The first entry keeps its natural id; only a genuine collision
+            // gets renamed, so a config that is already unique is untouched.
+            guard used.contains(candidate) else {
+                used.insert(candidate)
+                continue
+            }
+
+            var suffix = 2
+            while used.contains("\(provider.type)-\(suffix)") { suffix += 1 }
+            let fresh = "\(provider.type)-\(suffix)"
+            copy.providers[index].id = fresh
+            used.insert(fresh)
+            assigned.append(fresh)
+        }
+
+        guard !assigned.isEmpty else { return (copy, nil) }
+        return (
+            copy,
+            "Gave duplicate provider entries their own id (\(assigned.joined(separator: ", "))) so they can be told apart"
+        )
+    }
+
+    /// Groups of enabled entries that would read the *same* credential, which
+    /// means they show the same account twice.
+    func sharedCredentialGroups() -> [[String]] {
+        var groups: [String: [(index: Int, title: String)]] = [:]
+        for (index, provider) in providers.enumerated() where provider.isEnabled {
+            // An explicit `credential` is the identity; otherwise both entries
+            // fall back to the same type-level alias.
+            let key = provider.credential ?? "auto:\(provider.type)"
+            groups[key, default: []].append((index, displayName(at: index)))
+        }
+        return groups.values
+            .filter { $0.count > 1 }
+            .map { $0.map(\.title) }
+            .sorted { $0[0] < $1[0] }
     }
 
     /// Every built-in provider, enabled by default. Credentials are resolved at
@@ -236,7 +321,11 @@ enum ConfigStore {
             if config.providers.isEmpty {
                 config.providers = QuotaWidgetConfig.default.providers
             }
-            return (config, permissionWarning(for: config))
+            // Two entries of one provider type must not share an identity.
+            let normalized = config.normalized()
+            let warnings = [permissionWarning(for: normalized.config), normalized.warning]
+                .compactMap { $0 }
+            return (normalized.config, warnings.isEmpty ? nil : warnings.joined(separator: " · "))
         } catch {
             return (QuotaWidgetConfig.default, "config.json is invalid (\(error.localizedDescription)); using defaults")
         }

@@ -49,6 +49,11 @@ struct PanelView: View {
                 }
             } else if !service.externalCredentials.isEmpty {
                 credentialNotice
+            } else if let sharedCredential = service.configNotices.first {
+                notice(sharedCredential, tint: .orange) {
+                    Button("Settings") { showingSettings = true }
+                        .controlSize(.small)
+                }
             }
 
             content

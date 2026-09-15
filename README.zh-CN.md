@@ -219,7 +219,7 @@ CLI 正在持续刷新的新 token，直接把 provider 弄坏；这类凭据始
 | `autoConsolidateCredentials` | 配置里没有任何凭据时，是否自动把 provider 需要的 key 抄进来。默认 `true`。 |
 | `credentials` | 凭据库，按名字索引。见上。 |
 | `name` | 卡片上显示的标题，默认用 provider 自己的名字。 |
-| `id` | 稳定标识 —— 设了它就能把同一个 provider 的两个账号并排显示。 |
+| `id` | 跟踪套餐选择器和 `--provider` 使用的标识。省略时按类型推导，冲突时自动加 `-2` 后缀。 |
 | `credential` | 指定该 provider 使用 `credentials` 里的哪个条目。 |
 | `authScheme` | `raw`（`zai` / `zhipu` 的默认值）或 `bearer`。 |
 | `cookie` / `cookieEnv` | 完整的 `Cookie` 头，用于那些靠网页会话鉴权的 provider（MiniMax）。 |
@@ -228,6 +228,35 @@ CLI 正在持续刷新的新 token，直接把 provider 弄坏；这类凭据始
 
 只留你在用的即可 —— 简短的 `providers` 列表扫起来更快。菜单栏显示的是所有正常 provider 中
 最紧张的那个窗口，所以快用完的套餐不开面板也能看到。
+
+## 同时跟踪同一个 provider 的两个账号
+
+把同一个 provider 类型加两次，并给每个条目各自指定一个凭据即可。第二个条目会自动获得自己的
+`id`，面板上会标注成 `Command Code (2)`，两张卡片可以区分开：
+
+```json
+{
+  "credentials": {
+    "commandcode":   { "type": "api", "key": "user_work" },
+    "commandcode-2": { "type": "api", "key": "user_personal" }
+  },
+  "providers": [
+    { "type": "commandcode", "credential": "commandcode" },
+    { "type": "commandcode", "credential": "commandcode-2", "name": "Command Code（个人）" }
+  ]
+}
+```
+
+- **`id`** —— 所有查找都以它为键：跟踪套餐的选择、菜单栏的固定项，以及
+  `--provider <id>`。不写就按类型推导；如果和别的条目冲突，会自动加 `-2`、`-3`…… 后缀（面板会
+  说明做了这件事）。显式写上即可重命名。
+- **`name`** —— 卡片上显示的名字。默认用 provider 自己的名字，重复时编号为 `(2)`、`(3)`……。
+  清空即可回到自动生成的名字。
+- **`credential`** —— 让每个条目指向**不同**的凭据。如果两个条目最终会落到同一个凭据上，那它们
+  就是把同一个账号显示了两遍，面板会就此给出警告，并提供直接跳到设置页的入口。
+
+在面板里操作：设置页的 **Add** 菜单会列出全部 provider 类型，**包括已经加过的** —— 选一个已有
+的即可跟踪它的第二个账号。名字可以直接就地编辑，条目一旦有了 `id` 也会在该行显示出来。
 
 ## 自定义 provider
 

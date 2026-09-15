@@ -311,6 +311,10 @@ enum AuthMigrator {
         for index in config.providers.indices {
             guard config.providers[index].credential == nil else { continue }
             let type = config.providers[index].type
+            // With two entries of one type, a type-level alias cannot say which
+            // account belongs to which, so leave both for the user to point.
+            let sameType = config.providers.filter { $0.type == type }.count
+            guard sameType == 1 else { continue }
             let candidates = [type] + aliases(for: type)
             if let match = candidates.first(where: { available.contains($0) }) {
                 config.providers[index].credential = match

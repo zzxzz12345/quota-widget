@@ -147,7 +147,7 @@ enum CLIRunner {
 
     private static func runReport(_ options: Options) -> Int32 {
         let (config, _) = ConfigStore.load()
-        var providers = config.providers.filter(\.isEnabled)
+        var providers = config.resolvedProviders()
         if let filter = options.providerFilter {
             providers = providers.filter { $0.resolvedID == filter || $0.type == filter }
         }

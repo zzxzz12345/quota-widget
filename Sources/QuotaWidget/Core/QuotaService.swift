@@ -12,6 +12,8 @@ final class QuotaService: ObservableObject {
     /// Credentials the enabled providers read from outside `config.json`.
     @Published private(set) var externalCredentials: [AuthMigrator.Source] = []
     @Published private(set) var consolidationMessage: String?
+    /// Config problems worth surfacing, e.g. two entries reading one credential.
+    @Published private(set) var configNotices: [String] = []
     @Published var config: QuotaWidgetConfig
 
     private var refreshLoop: Task<Void, Never>?
@@ -44,7 +46,7 @@ final class QuotaService: ObservableObject {
     }
 
     var enabledProviders: [ProviderConfig] {
-        config.providers.filter(\.isEnabled)
+        config.resolvedProviders()
     }
 
     // MARK: - Lifecycle
@@ -113,8 +115,12 @@ final class QuotaService: ObservableObject {
         refreshCredentialNotice()
     }
 
-    /// Recomputes which credentials are still living outside the config file.
+    /// Recomputes which credentials are still living outside the config file,
+    /// and any config problem worth showing.
     func refreshCredentialNotice() {
+        configNotices = config.sharedCredentialGroups().map { group in
+            "\(group.joined(separator: " and ")) use the same credential, so they show the same account"
+        }
         guard config.readsExternalAuthFiles else {
             externalCredentials = []
             return
@@ -152,7 +158,9 @@ final class QuotaService: ObservableObject {
         credentials: CredentialStore,
         http: HTTPClient
     ) async -> [ProviderQuota] {
-        let targets = config.providers.filter(\.isEnabled)
+        // `resolvedProviders` fills in a distinguishing name for a second
+        // account of the same provider, so its card is tellable apart.
+        let targets = config.resolvedProviders()
         return await withTaskGroup(of: (Int, ProviderQuota).self) { group in
             for (index, providerConfig) in targets.enumerated() {
                 group.addTask {

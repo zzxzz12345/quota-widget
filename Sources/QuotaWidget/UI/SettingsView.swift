@@ -74,9 +74,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 5) {
             sectionTitle("Tracked plan", "Shown in the menu bar as 5h / 1w / 1m.")
 
-            let trackedOptions: [(value: String, title: String)] =
-                [(value: "", title: "Tightest across all")]
-                + enabledProviders.map { (value: $0.resolvedID, title: displayName(for: $0)) }
+            let trackedOptions = draft.trackedOptions()
 
             if renderMode == .offscreen {
                 StaticControls.RadioGroup(options: trackedOptions, selection: draft.trackedID ?? "")
@@ -149,6 +147,7 @@ struct SettingsView: View {
                         .menuStyle(.borderlessButton)
                         .fixedSize()
                         .font(.system(size: 11))
+                        .help("Add a provider. Pick one already listed to track a second account of it.")
                     }
                 }
             }
@@ -161,6 +160,13 @@ struct SettingsView: View {
             }
             .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.04)))
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.07)))
+
+            ForEach(draft.warnings(), id: \.self) { warning in
+                Label(warning, systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             Text("Credentials stay in config.json; add a key by editing the file or running --migrate-auth.")
                 .font(.system(size: 9.5))
@@ -184,9 +190,28 @@ struct SettingsView: View {
                 .labelsHidden()
             }
 
-            Text(displayName(for: provider))
-                .font(.system(size: 11.5))
-                .foregroundStyle(provider.isEnabled ? .primary : .secondary)
+            VStack(alignment: .leading, spacing: 0) {
+                if renderMode == .offscreen {
+                    Text(draft.displayName(at: index))
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(provider.isEnabled ? .primary : .secondary)
+                } else {
+                    TextField("Name", text: Binding(
+                        get: { provider.name ?? "" },
+                        set: { draft.setName($0, at: index) }
+                    ))
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(provider.isEnabled ? .primary : .secondary)
+                    .help("Shown on the card. Leave empty to use the generated name.")
+                }
+
+                if provider.id != nil {
+                    Text("id: \(provider.resolvedID)")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                }
+            }
 
             if draft.trackedID == provider.resolvedID {
                 Badge(text: "tracked", tint: .accentColor)
@@ -248,10 +273,6 @@ struct SettingsView: View {
 
     // MARK: - Actions
 
-    private func displayName(for provider: ProviderConfig) -> String {
-        provider.name ?? ProviderRegistry.defaultName(for: provider.type)
-    }
-
     private func addProvider(_ type: String) {
         draft.addProvider(type)
     }
@@ -267,9 +288,11 @@ struct SettingsView: View {
             return
         }
         do {
-            try ConfigStore.write(draft.config)
+            // Last guarantee that two entries never share an identity.
+            let normalized = draft.config.normalized().config
+            try ConfigStore.write(normalized)
             saveError = nil
-            service.applyConfig(draft.config)
+            service.applyConfig(normalized)
             onDone()
         } catch {
             saveError = "Could not save: \(error.localizedDescription)"

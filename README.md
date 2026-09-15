@@ -234,7 +234,7 @@ environment variable at load time.
 | `autoConsolidateCredentials` | On a config with no stored credentials, copy in the keys the providers need. Default `true`. |
 | `credentials` | The credential vault, keyed by name. See above. |
 | `name` | Label for the card. Defaults to the provider's own name. |
-| `id` | Stable identity — set it to run two accounts of the same provider side by side. |
+| `id` | Identity used by the tracked-plan picker and `--provider`. Derived from the type when omitted, with a `-2` suffix on collision. |
 | `credential` | Name of the `credentials` entry this provider should use. |
 | `authScheme` | `raw` (default for `zai`/`zhipu`) or `bearer`. |
 | `cookie` / `cookieEnv` | Full `Cookie` header value, for providers gated on a web session (MiniMax). |
@@ -243,6 +243,40 @@ environment variable at load time.
 Keep only what you use — a short `providers` list makes the panel quicker to
 scan. The menu bar shows the tightest window across all healthy providers, so a
 plan about to run dry is visible without opening the panel.
+
+## Two accounts of the same provider
+
+Add the provider type twice and give each entry its own credential. The second
+entry is given its own `id` automatically, and the panel labels it
+`Command Code (2)` so the two cards are tellable apart:
+
+```json
+{
+  "credentials": {
+    "commandcode":   { "type": "api", "key": "user_work" },
+    "commandcode-2": { "type": "api", "key": "user_personal" }
+  },
+  "providers": [
+    { "type": "commandcode", "credential": "commandcode" },
+    { "type": "commandcode", "credential": "commandcode-2", "name": "Command Code (personal)" }
+  ]
+}
+```
+
+- **`id`** — the identity everything keys on: the tracked-plan picker, the menu
+  bar pin, and `--provider <id>`. Leave it out and one is derived from the type;
+  if that would collide with another entry, a `-2`, `-3`… suffix is added
+  automatically (and the panel says so). Set it explicitly to rename.
+- **`name`** — what the card shows. Defaults to the provider's name, numbered
+  `(2)`, `(3)`… for repeats. Empty it to go back to the generated title.
+- **`credential`** — point each entry at a *different* credential. Two entries
+  that would fall back to the same one show the same account twice, and the
+  panel warns about it, with a jump straight to Settings.
+
+From the panel: the **Add** menu in Settings lists every provider type
+including ones already in the panel — pick a listed one to track a second
+account. Names are editable in place, and each row shows its `id` once it has
+one.
 
 ## Custom providers
 
